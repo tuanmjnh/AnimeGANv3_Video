@@ -1,0 +1,6 @@
+.DS_Store
+.thumbs.db
+
+build
+dist
+AnimeGANv3_Video.exe
