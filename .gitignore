@@ -5,4 +5,10 @@ build
 dist
 extracts
 temporary
+__pycache__
 AnimeGANv3_Video.exe
+onnxruntime_gpu-1.9.0-cp38-cp38-win_amd64.whl
+onnxruntime_gpu-1.9.0-cp39-cp39-win_amd64.whl
+Resources/ffmpeg.exe
+Resources/ffplay.exe
+Resources/ffprobe.exe
