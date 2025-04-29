@@ -1,0 +1,188 @@
+Setting up ONNX Runtime with the CUDA Execution Provider on Windows 10 using an NVIDIA GTX 750 Ti involves several steps. The GTX 750 Ti has a CUDA compute capability of 5.0 (Maxwell architecture), which imposes limitations on CUDA and cuDNN compatibility. Below is a step-by-step guide to configure ONNX Runtime to utilize the GPU with the CUDA Execution Provider.
+
+Prerequisites
+Hardware: NVIDIA GTX 750 Ti (Compute Capability 5.0).
+OS: Windows 10 (64-bit).
+Software Requirements:
+Python (3.7–3.10 recommended for compatibility).
+NVIDIA CUDA Toolkit (version compatible with GTX 750 Ti).
+NVIDIA cuDNN (version compatible with the CUDA Toolkit).
+ONNX Runtime GPU package (onnxruntime-gpu).
+Microsoft Visual C++ Redistributable (for Windows).
+Step-by-Step Setup
+1. Verify GPU Compatibility
+The GTX 750 Ti supports CUDA but has a compute capability of 5.0, which is older and not supported by newer CUDA versions (e.g., CUDA 11.x or 12.x). CUDA 10.2 is the last version with official support for compute capability 5.0.
+Check the NVIDIA CUDA GPUs page for compute capability: .
+Note: Some users have reported issues with cuDNN on GTX 750 Ti due to architecture mismatches (e.g., CUDNN_STATUS_ARCH_MISMATCH).
+2. Install CUDA Toolkit
+Recommended Version: CUDA Toolkit 10.2 (latest version supporting compute capability 5.0).
+Download from the NVIDIA CUDA Toolkit Archive: CUDA Toolkit 10.2.
+Install the toolkit, ensuring all components (e.g., driver, libraries) are included.
+Environment Variables:
+Add the CUDA bin directory to the system PATH:
+text
+
+Copy
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin
+Verify installation by running nvcc --version in Command Prompt. It should display CUDA 10.2 details.
+3. Install cuDNN
+Recommended Version: cuDNN 7.6.x (compatible with CUDA 10.2).
+Download cuDNN 7.6.x from the NVIDIA Developer website (requires an NVIDIA Developer account): NVIDIA cuDNN.
+Extract the cuDNN archive and copy the contents:
+bin to C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin
+include to C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\include
+lib\x64 to C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2\lib\x64
+Add the cuDNN bin directory to the system PATH if not already included.
+Zlib Dependency (for cuDNN 8.x or if required):
+Install Zlib for Windows if using a cuDNN version that requires it. For cuDNN 7.6.x, this may not be necessary on Windows as Zlib is statically linked.
+Note: cuDNN versions newer than 7.x may not support compute capability 5.0, leading to errors like CUDNN_STATUS_ARCH_MISMATCH. Stick to cuDNN 7.6.x to avoid issues.
+4. Install Python and Dependencies
+Install Python (e.g., 3.8 for compatibility) from python.org.
+Create a virtual environment (optional but recommended):
+text
+
+Copy
+python -m venv onnx_env
+.\onnx_env\Scripts\activate
+Install required Python packages:
+text
+
+Copy
+pip install numpy flatbuffers packaging protobuf sympy
+5. Install ONNX Runtime GPU
+Recommended Version: ONNX Runtime 1.9.0 or earlier, as newer versions (e.g., 1.19+) default to CUDA 12.x or CUDA 11.x, which do not support compute capability 5.0.
+Install onnxruntime-gpu 1.9.0:
+text
+
+Copy
+pip install onnxruntime-gpu==1.9.0
+Verify the installation:
+python
+
+Copy
+import onnxruntime as ort
+print(ort.get_device())  # Should output: GPU
+print(ort.get_available_providers())  # Should include: ['CUDAExecutionProvider', 'CPUExecutionProvider']
+Compatibility Note:
+ONNX Runtime 1.9.0 is built with CUDA 11.4 and cuDNN 8.2, but due to CUDA Minor Version Compatibility, it may work with CUDA 10.2 if cuDNN versions align. However, for best results, match the CUDA and cuDNN versions exactly or build ONNX Runtime from source (see below).
+If CUDAExecutionProvider is not available, ONNX Runtime falls back to CPUExecutionProvider. Check CUDA/cuDNN versions and PATH settings.
+6. Configure ONNX Runtime for CUDA
+Create an inference session with the CUDA Execution Provider:
+python
+
+Copy
+import onnxruntime as ort
+model_path = "model.onnx"  # Path to your ONNX model
+providers = [
+    ('CUDAExecutionProvider', {
+        'device_id': 0,
+        'arena_extend_strategy': 'kNextPowerOfTwo',
+        'cudnn_conv_algo_search': 'EXHAUSTIVE',
+        'do_copy_in_default_stream': True,
+    }),
+    'CPUExecutionProvider',
+]
+session = ort.InferenceSession(model_path, providers=providers)
+print(session.get_providers())  # Should include 'CUDAExecutionProvider'
+Notes:
+If CUDAExecutionProvider is not listed, verify CUDA/cuDNN installation and PATH variables.
+The cudnn_conv_algo_search option set to EXHAUSTIVE may improve performance but increases the first inference time. Set to DEFAULT for faster startup if needed.
+Use session_options.log_severity_level = 0 for verbose logging to confirm CUDA node placement:
+python
+
+Copy
+session_options = ort.SessionOptions()
+session_options.log_severity_level = 0
+session = ort.InferenceSession(model_path, session_options, providers=providers)
+7. Optional: Preload DLLs with PyTorch
+If you have PyTorch installed with CUDA support, importing PyTorch before ONNX Runtime can preload CUDA/cuDNN DLLs, simplifying dependency management:
+python
+
+Copy
+import torch
+import onnxruntime as ort
+session = ort.InferenceSession("model.onnx", providers=["CUDAExecutionProvider"])
+Alternatively, use onnxruntime.preload_dlls() (available in ONNX Runtime 1.21.0+, not applicable for 1.9.0).
+8. Troubleshooting
+Error: CUDAExecutionProvider not available:
+Ensure onnxruntime-gpu (not onnxruntime) is installed: pip uninstall onnxruntime; pip install onnxruntime-gpu==1.9.0.
+Verify PATH includes CUDA and cuDNN bin directories.
+Check CUDA/cuDNN version compatibility: .
+Error: CUDNN_STATUS_ARCH_MISMATCH:
+The GTX 750 Ti’s compute capability 5.0 is not supported by newer cuDNN versions. Use cuDNN 7.6.x.
+Error: Failed to create CUDAExecutionProvider:
+Reinstall CUDA 10.2 and cuDNN 7.6.x.
+Ensure Microsoft Visual C++ Redistributable is installed.
+Check for conflicting CUDA versions (e.g., multiple installations).
+Performance Issues:
+Set cudnn_conv_algo_search to DEFAULT for faster startup.
+Enable CUDA graphs for repetitive inferences:
+python
+
+Copy
+providers = [("CUDAExecutionProvider", {"enable_cuda_graph": '1'})]
+session = ort.InferenceSession("model.onnx", providers=providers)
+Fallback to CPU:
+If ort.get_device() returns CPU or CUDAExecutionProvider is missing from ort.get_available_providers(), reinstall dependencies and verify PATH.
+9. Optional: Build ONNX Runtime from Source
+If prebuilt onnxruntime-gpu 1.9.0 is incompatible, build ONNX Runtime from source to target CUDA 10.2 and cuDNN 7.6.x:
+Prerequisites:
+Install CMake (3.26+), Visual Studio 2019 (with C++ tools), Git.
+Set environment variables:
+text
+
+Copy
+set CUDA_HOME=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2
+set CUDNN_HOME=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.2
+Clone Repository:
+text
+
+Copy
+git clone --branch v1.9.0 https://github.com/microsoft/onnxruntime.git
+cd onnxruntime
+Build:
+text
+
+Copy
+.\build.bat --config Release --build_wheel --use_cuda --cuda_home %CUDA_HOME% --cudnn_home %CUDNN_HOME% --cmake_extra_defines CMAKE_CUDA_ARCHITECTURES=50
+The CMAKE_CUDA_ARCHITECTURES=50 ensures compatibility with compute capability 5.0.
+Install Wheel:
+Find the .whl file in build\Windows\Release\dist and install:
+text
+
+Copy
+pip install dist\onnxruntime_gpu-1.9.0-cp38-cp38-win_amd64.whl
+Notes:
+Building requires significant disk space and memory. Use --parallel 2 if memory is limited.
+See ONNX Runtime Build Instructions for details.
+Limitations
+Compute Capability 5.0: The GTX 750 Ti is not supported by CUDA 11.x or newer, limiting you to older ONNX Runtime versions (e.g., 1.9.0) and CUDA 10.2/cuDNN 7.6.x.
+cuDNN Support: Newer cuDNN versions (8.x+) may not work due to architecture mismatches.
+Performance: The GTX 750 Ti is an older GPU, so performance may be limited compared to modern GPUs, especially for large models.
+Quantized Models: Quantized models may not run on CUDAExecutionProvider due to limitations in handling Quantize/Dequantize nodes. Use TensorrtExecutionProvider for statically quantized models if feasible, though TensorRT support for compute capability 5.0 is also limited.
+Verification
+Run the following to confirm GPU usage:
+
+python
+
+Copy
+import onnxruntime as ort
+import numpy as np
+
+print(ort.get_device())  # Should print: GPU
+print(ort.get_available_providers())  # Should include: CUDAExecutionProvider
+
+# Test with a simple model
+model_path = "model.onnx"  # Replace with your ONNX model
+session = ort.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
+input_name = session.get_inputs()[0].name
+output_name = session.get_outputs()[0].name
+dummy_input = np.random.randn(1, *session.get_inputs()[0].shape[1:]).astype(np.float32)
+output = session.run([output_name], {input_name: dummy_input})[0]
+print("Inference successful on GPU!")
+Additional Notes
+Driver Version: Ensure your NVIDIA driver supports CUDA 10.2 (e.g., driver version 441.22 or later). Check with nvidia-smi.
+PyTorch Integration: If using PyTorch, ensure it’s built for CUDA 10.2 to avoid DLL conflicts.
+Documentation: Refer to  for detailed requirements.
+Community Issues: Check GitHub issues (e.g., ) for similar problems.
+If you encounter specific errors, provide details (e.g., error messages, Python version, installed package versions) for further assistance.

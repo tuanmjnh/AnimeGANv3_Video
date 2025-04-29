@@ -1,1 +1,1 @@
-AnimeGANv3_Video.exe -i "D:\MMO\Sources\Dance\Robot or real girl- #dance #ello #pop #dancer #asian #shorts.mp4" -o ./outputs/anime_video.mp4 -f 30 -d gpu
+AnimeGANv3_Video.exe -i "inputs\dance girl.mp4" -d gpu -o ./outputs/anime_video.mp4 -f 30
